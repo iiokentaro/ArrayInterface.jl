@@ -37,8 +37,8 @@ parameterless_type(x::Type) = __parameterless_type(x)
 
 const VecAdjTrans{T,V<:AbstractVector{T}} = Union{Transpose{T,V},Adjoint{T,V}}
 const MatAdjTrans{T,M<:AbstractMatrix{T}} = Union{Transpose{T,M},Adjoint{T,M}}
-const UpTri{T,M} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
-const LoTri{T,M} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
+const UpTri{T,M<:AbstractMatrix{T}} = Union{UpperTriangular{T,M},UnitUpperTriangular{T,M}}
+const LoTri{T,M<:AbstractMatrix{T}} = Union{LowerTriangular{T,M},UnitLowerTriangular{T,M}}
 
 @inline static_length(a::UnitRange{T}) where {T} = last(a) - first(a) + oneunit(T)
 @inline static_length(x) = Static.maybe_static(known_length, length, x)
@@ -145,15 +145,15 @@ ismutable(::Type{<:Base.ImmutableDict}) = false
 ismutable(::Type{BigFloat}) = false
 ismutable(::Type{BigInt}) = false
 function ismutable(::Type{T}) where {T}
-  if parent_type(T) <: T
-    @static if VERSION ≥ v"1.7.0-DEV.1208"
-      return Base.ismutabletype(T)
+    if parent_type(T) <: T
+        @static if VERSION ≥ v"1.7.0-DEV.1208"
+            return Base.ismutabletype(T)
+        else
+            return T.mutable
+        end
     else
-      return T.mutable
+        return ismutable(parent_type(T))
     end
-  else
-    return ismutable(parent_type(T))
-  end
 end
 
 # Piracy
@@ -249,14 +249,14 @@ has_sparsestruct(::Type{<:SymTridiagonal}) = true
 Determine whether a given abstract matrix is singular.
 """
 issingular(A::AbstractMatrix) = issingular(Matrix(A))
-issingular(A::AbstractSparseMatrix) = !issuccess(lu(A, check = false))
-issingular(A::Matrix) = !issuccess(lu(A, check = false))
+issingular(A::AbstractSparseMatrix) = !issuccess(lu(A, check=false))
+issingular(A::Matrix) = !issuccess(lu(A, check=false))
 issingular(A::UniformScaling) = A.λ == 0
 issingular(A::Diagonal) = any(iszero, A.diag)
 issingular(A::Bidiagonal) = any(iszero, A.dv)
 issingular(A::SymTridiagonal) = diaganyzero(ldlt(A).data)
-issingular(A::Tridiagonal) = !issuccess(lu(A, check = false))
-issingular(A::Union{Hermitian,Symmetric}) = diaganyzero(bunchkaufman(A, check = false).LD)
+issingular(A::Tridiagonal) = !issuccess(lu(A, check=false))
+issingular(A::Union{Hermitian,Symmetric}) = diaganyzero(bunchkaufman(A, check=false).LD)
 issingular(A::Union{LowerTriangular,UpperTriangular}) = diaganyzero(A.data)
 issingular(A::Union{UnitLowerTriangular,UnitUpperTriangular}) = false
 issingular(A::Union{Adjoint,Transpose}) = issingular(parent(A))
@@ -357,7 +357,7 @@ lu_instance(a::Number) = a
 
 Returns the number.
 """
-lu_instance(a::Any) = lu(a, check = false)
+lu_instance(a::Any) = lu(a, check=false)
 
 """
     safevec(v)
@@ -389,7 +389,7 @@ end
 # Reduces compile time burdens
 function zeromatrix(u::Array{T}) where T
     out = Matrix{T}(undef, length(u), length(u))
-    fill!(out,false)
+    fill!(out, false)
 end
 
 """
@@ -652,10 +652,10 @@ Examples
     False()
 
 """
-is_lazy_conjugate(::T) where {T <: AbstractArray} = _is_lazy_conjugate(T, False())
-is_lazy_conjugate(::AbstractArray{<:Real})  = False()
+is_lazy_conjugate(::T) where {T<:AbstractArray} = _is_lazy_conjugate(T, False())
+is_lazy_conjugate(::AbstractArray{<:Real}) = False()
 
-function _is_lazy_conjugate(::Type{T}, isconj) where {T <: AbstractArray}
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:AbstractArray}
     Tp = parent_type(T)
     if T !== Tp
         _is_lazy_conjugate(Tp, isconj)
@@ -664,7 +664,7 @@ function _is_lazy_conjugate(::Type{T}, isconj) where {T <: AbstractArray}
     end
 end
 
-function _is_lazy_conjugate(::Type{T}, isconj) where {T <: Adjoint}
+function _is_lazy_conjugate(::Type{T}, isconj) where {T<:Adjoint}
     Tp = parent_type(T)
     if T !== Tp
         _is_lazy_conjugate(Tp, !isconj)
@@ -728,7 +728,7 @@ function __init__()
         known_last(::Type{StaticArrays.SOneTo{N}}) where {N} = N
         known_length(::Type{StaticArrays.SOneTo{N}}) where {N} = N
         known_length(::Type{StaticArrays.Length{L}}) where {L} = L
-        known_length(::Type{A}) where {A <: StaticArrays.StaticArray} = known_length(StaticArrays.Length(A))
+        known_length(::Type{A}) where {A<:StaticArrays.StaticArray} = known_length(StaticArrays.Length(A))
 
         device(::Type{<:StaticArrays.MArray}) = CPUPointer()
         device(::Type{<:StaticArrays.SArray}) = CPUTuple()
@@ -932,7 +932,7 @@ function __init__()
         end
         @inline axes(A::OffsetArrays.OffsetArray) = Base.axes(A)
         @inline _axes(A::OffsetArrays.OffsetArray, dim::Integer) = Base.axes(A, dim)
-        @inline axes(A::OffsetArrays.OffsetArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(),StaticInt{N}()))
+        @inline axes(A::OffsetArrays.OffsetArray{T,N}, ::StaticInt{M}) where {T,M,N} = _axes(A, StaticInt{M}(), gt(StaticInt{M}(), StaticInt{N}()))
     end
 end
 
